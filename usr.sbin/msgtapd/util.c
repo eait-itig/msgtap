@@ -123,19 +123,22 @@ sun_bind(const char *path)
                 return (-1);
 
 	if (unlink(path) == -1) {
-		if (errno != ENOENT) {
-                        close(fd);
-                        return (-1);
-                }
+		if (errno != ENOENT)
+			goto close;
 	}
 
 	omask = umask(S_IXUSR|S_IXGRP|S_IWOTH|S_IROTH|S_IXOTH);
 	rv = bind(fd, (struct sockaddr *)&sun, sizeof(sun));
 	umask(omask);
-	if (rv == -1) {
-		close(fd);
-		return (-1);
-	}
+	if (rv == -1)
+		goto close;
+
+	/* ugh, toctou */
+	if (chmod(path, 0222 /* S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP */) == -1)
+		goto close;
 
         return (fd);
+close:
+	close(fd);
+	return (-1);
 }
