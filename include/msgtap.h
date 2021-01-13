@@ -31,6 +31,23 @@
  *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *   | Captured                                                      |
  *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ * Version (4 bits): The current version number is 0.
+ *
+ * Reserved (12 bits): These bits MUST be zero when messages are
+ * generated, and MUST be ignored when processed.
+ *
+ * Type of Message (16 bits): Identifies the type of data in the message.
+ *
+ * Metadata Length (32 bits): The amount of metadata attached to the
+ * message, in bytes.
+ *
+ * Length (32 bits): The original length of the data attached to this
+ * message.
+ *
+ * Captured (32 bits): The amount of data attached to this message.
+ * The amount of data that is captured may be less than the original
+ * length of the message.
  */
 
 struct msgtap_header {
