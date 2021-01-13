@@ -103,7 +103,7 @@ struct msgtap_metadata {
 #define MSGTAP_T_PAD		0x00	/* no metadata, just padding */
 
 /*
- * identify where the message was generated. */
+ * identify where the message was generated.
  */
 #define MSGTAP_T_ORG		0x01	/* string: eg "uq.edu.au" */
 #define MSGTAP_T_SERVICE	0x02	/* string: eg "dns-recursor */
