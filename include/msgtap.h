@@ -44,8 +44,6 @@ struct msgtap_header {
 	uint32_t	mh_caplen;	/* captured message bytes */
 };
 
-#define MSGTAP_TYPE_DNS		0x0053
-
 /*
  *    0                   1                   2                   3
  *    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
