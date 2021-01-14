@@ -639,6 +639,7 @@ parse_config(char *filename)
 		err(1, NULL);
 
 	TAILQ_INIT(&xmtd->mtd_listeners);
+	TAILQ_INIT(&xmtd->mtd_clients);
 
 	mtd = xmtd;
 	yyparse();

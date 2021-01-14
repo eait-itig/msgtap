@@ -35,11 +35,21 @@ struct msgtap_listener {
 
 TAILQ_HEAD(msgtap_listeners, msgtap_listener);
 
+struct msgtap_client {
+	struct msgtapd		*mtc_daemon;
+	TAILQ_ENTRY(msgtap_client)
+				 mtc_entry;
+	struct event		 mtc_ev;
+};
+
+TAILQ_HEAD(msgtap_clients, msgtap_client);
+
 struct msgtapd {
 	void			*mtd_buf;
 	size_t			 mtd_buflen;
 
 	struct msgtap_listeners	 mtd_listeners;
+	struct msgtap_clients	 mtd_clients;
 };
 
 int			 cmdline_symset(char *);

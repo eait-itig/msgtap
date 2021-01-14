@@ -39,13 +39,14 @@
 #include "msgtapc.h"
 #include "util.h"
 
-struct msgtap_receiver {
-	struct msgtapd		*mtr_daemon;
-	struct event		 mtr_ev;
+struct msgtap_server {
+	struct msgtapd		*mts_daemon;
+	struct event		 mts_ev;
 };
 
 static void	msgtap_accept(int, short, void *);
 static void	msgtap_recv(int, short, void *);
+static void	msgtap_closed(int, short, void *);
 
 static size_t	kern_sb_max(void);
 
@@ -531,49 +532,80 @@ msgtap_accept(int lfd, short events, void *arg)
 void
 msgtapd_accept_server(struct msgtapd *mtd, int fd)
 {
-	struct msgtap_receiver *mtr;
+	struct msgtap_server *mts;
 
-	mtr = malloc(sizeof(*mtr));
-	if (mtr == NULL) {
-		warn("receiver alloc");
+	mts = malloc(sizeof(*mts));
+	if (mts == NULL) {
+		warn("server connection alloc");
 		close(fd);
 		return;
 	}
 
-	mtr->mtr_daemon = mtd;
+	mts->mts_daemon = mtd;
 
-	event_set(&mtr->mtr_ev, fd, EV_READ|EV_PERSIST, msgtap_recv, mtr);
-	event_add(&mtr->mtr_ev, NULL);
-}
-
-void
-msgtapd_accept_client(struct msgtapd *mtd, int fd)
-{
-	warnx("%s", __func__);
-	close(fd);
+	event_set(&mts->mts_ev, fd, EV_READ|EV_PERSIST, msgtap_recv, mts);
+	event_add(&mts->mts_ev, NULL);
 }
 
 static void
 msgtap_recv(int fd, short events, void *arg)
 {
-	struct msgtap_receiver *mtr = arg;
-	struct msgtapd *mtd = mtr->mtr_daemon;
+	struct msgtap_server *mts = arg;
+	struct msgtapd *mtd = mts->mts_daemon;
 	ssize_t rv;
 
 	rv = recv(fd, mtd->mtd_buf, mtd->mtd_buflen, 0);
 	if (rv == -1)
-		err(1, "recv");
+		err(1, "server recv");
 	if (rv == 0) {
-		warnx("disconnected");
-		event_del(&mtr->mtr_ev);
-		close(EVENT_FD(&mtr->mtr_ev));
-		free(mtr);
+		warnx("server disconnected");
+		event_del(&mts->mts_ev);
+		close(EVENT_FD(&mts->mts_ev));
+		free(mts);
 		return;
 	}
 
 	msgtap_dump(mtd->mtd_buf, rv);
 
 	fflush(stdout);
+}
+
+void
+msgtapd_accept_client(struct msgtapd *mtd, int fd)
+{
+	struct msgtap_client *mtc;
+
+	mtc = malloc(sizeof(*mtc));
+	if (mtc == NULL) {
+		warn("client connection alloc");
+		close(fd);
+		return;
+	}
+
+	mtc->mtc_daemon = mtd;
+	TAILQ_INSERT_TAIL(&mtd->mtd_clients, mtc, mtc_entry);
+
+	event_set(&mtc->mtc_ev, fd, EV_READ|EV_PERSIST, msgtap_closed, mtc);
+	event_add(&mtc->mtc_ev, NULL);
+}
+
+static void
+msgtap_closed(int fd, short events, void *arg)
+{
+	struct msgtap_client *mtc = arg;
+	struct msgtapd *mtd = mtc->mtc_daemon;
+	ssize_t rv;
+
+	rv = recv(fd, mtd->mtd_buf, mtd->mtd_buflen, 0);
+	if (rv == -1)
+		err(1, "client recv");
+	if (rv == 0) {
+		event_del(&mtc->mtc_ev);
+		close(EVENT_FD(&mtc->mtc_ev));
+		TAILQ_REMOVE(&mtd->mtd_clients, mtc, mtc_entry);
+		free(mtc);
+		return;
+	}
 }
 
 static size_t
