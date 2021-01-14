@@ -16,29 +16,25 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#ifndef nitems
-#define nitems(_a)	(sizeof((_a)) / sizeof((_a)[0]))
-#endif
+struct msgtap_md_type {
+	uint8_t		  mdt_id;
+	int		  mdt_len;
 
-struct msgtapd;
-
-struct msgtap_listener {
-	char			*mtl_path;
-
-	struct msgtapd		*mtl_daemon;
-	TAILQ_ENTRY(msgtap_listener)
-				 mtl_entry;
-	struct event		 mtl_ev;
+	const char	 *mdt_name;
+	void		(*mdt_handler)(const struct msgtap_metadata *,
+			      const void *, size_t);
 };
 
-TAILQ_HEAD(msgtap_listeners, msgtap_listener);
+struct msgtap_md_class {
+	uint8_t		  mdc_id;
+	const char	 *mdc_name;
 
-struct msgtapd {
-	void			*mtd_buf;
-	size_t			 mtd_buflen;
-
-	struct msgtap_listeners	 mtd_listeners;
+	const struct msgtap_md_type
+			 *mdc_types;
+	unsigned int	  mdc_ntypes;
+	void		(*mdc_dump)(const void *, size_t, size_t);
 };
 
-int			 cmdline_symset(char *);
-struct msgtapd		*parse_config(char *);
+void	msgtap_md_string(const struct msgtap_metadata *, const void *, size_t);
+
+extern const struct msgtap_md_class msgtap_md_class_dns;

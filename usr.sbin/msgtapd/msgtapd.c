@@ -36,41 +36,12 @@
 #include <msgtap.h>
 
 #include "msgtapd.h"
+#include "msgtapc.h"
 #include "util.h"
 
-#ifndef nitems
-#define nitems(_a)	(sizeof((_a)) / sizeof((_a)[0]))
-#endif
-
-struct msgtapd;
-
-struct msgtap_listener {
-	struct msgtapd	*mtl_daemon;
-	TAILQ_ENTRY(msgtap_listener)
-			 mtl_entry;
-	const char	*mtl_path;
-	struct event	 mtl_ev;
-};
-
-TAILQ_HEAD(msgtap_listeners, msgtap_listener);
-
 struct msgtap_receiver {
-	struct msgtapd	*mtr_daemon;
-	TAILQ_ENTRY(msgtap_receiver)
-			 mtr_entry;
-	struct event	 mtr_ev;
-};
-
-TAILQ_HEAD(msgtap_receivers, msgtap_receiver);
-
-struct msgtapd {
-	void		*mtd_buf;
-	size_t		 mtd_buflen;
-
-	struct msgtap_listeners
-			 mtd_listeners;
-	struct msgtap_receivers
-			 mtd_receivers;
+	struct msgtapd		*mtr_daemon;
+	struct event		 mtr_ev;
 };
 
 static void	msgtap_accept(int, short, void *);
@@ -91,28 +62,27 @@ usage(void)
 int
 main(int argc, char *argv[])
 {
-	struct msgtapd _mtd = {
-		.mtd_buf	= NULL,
-		.mtd_buflen	= 0,
-		.mtd_listeners	= TAILQ_HEAD_INITIALIZER(_mtd.mtd_listeners),
-		.mtd_receivers	= TAILQ_HEAD_INITIALIZER(_mtd.mtd_receivers),
-	};
-	struct msgtapd * const mtd = &_mtd; /* stupid c */
+	struct msgtapd *mtd;
 	struct msgtap_listener *mtl;
+
+	char *conffile = "/etc/msgtapd.conf";
+	int nflag = 0;
 	int ch;
 
-	while ((ch = getopt(argc, argv, "U:")) != -1) {
+	while ((ch = getopt(argc, argv, "D:f:n")) != -1) {
 		switch (ch) {
-		case 'U':
-			if (sun_check(optarg) == -1)
-				err(1, "listener %s", optarg);
+		case 'D':
+			if (cmdline_symset(optarg) < 0) {
+				errx(1, "cannot parse macro definition %s",
+				    optarg);
+			}
+			break;
+		case 'f':
+			conffile = optarg;
+			break;
 
-			mtl = malloc(sizeof(*mtl));
-			if (mtl == NULL)
-				err(1, NULL);
-			mtl->mtl_path = optarg;
-
-			TAILQ_INSERT_TAIL(&mtd->mtd_listeners, mtl, mtl_entry);
+		case 'n':
+			nflag = 1;
 			break;
 
 		default:
@@ -126,8 +96,12 @@ main(int argc, char *argv[])
 	if (argc != 0)
 		usage();
 
+	mtd = parse_config(conffile);
+	if (mtd == NULL)
+		exit(1);
+
 	if (TAILQ_EMPTY(&mtd->mtd_listeners))
-		usage();
+		errx(1, "no listeners configured");
 
 	mtd->mtd_buflen = kern_sb_max();
 	mtd->mtd_buf = malloc(mtd->mtd_buflen);
@@ -137,10 +111,8 @@ main(int argc, char *argv[])
 	TAILQ_FOREACH(mtl, &mtd->mtd_listeners, mtl_entry) {
 		int lfd;
 
-		/*
-                 * narrow the toctou window, and try to avoid binding
-                 * to the same name twice.
-		 */
+warnx("%s[%u] %s", __func__, __LINE__, mtl->mtl_path);
+
 		if (sun_check(mtl->mtl_path) == -1)
 			err(1, "listener %s", mtl->mtl_path);
 
@@ -153,13 +125,13 @@ main(int argc, char *argv[])
 		if (listen(lfd, 5) == -1)
 			err(1, "listen %s", mtl->mtl_path);
 
-		mtl->mtl_daemon = mtd;
 		event_set(&mtl->mtl_ev, lfd, 0, NULL, NULL);
 	}
 
 	event_init();
 
 	TAILQ_FOREACH(mtl, &mtd->mtd_listeners, mtl_entry) {
+warnx("%s[%u] %s", __func__, __LINE__, mtl->mtl_path);
 		event_set(&mtl->mtl_ev, EVENT_FD(&mtl->mtl_ev),
 		    EV_READ|EV_PERSIST, msgtap_accept, mtl);
 		event_add(&mtl->mtl_ev, NULL);
@@ -550,6 +522,7 @@ msgtap_accept(int lfd, short events, void *arg)
 	struct msgtapd *mtd = mtl->mtl_daemon;
 	struct msgtap_receiver *mtr;
 	int fd;
+warnx("%s[%u] %s", __func__, __LINE__, mtl->mtl_path);
 
 	fd = accept4(lfd, NULL, 0, SOCK_NONBLOCK);
 	if (fd == -1) {
@@ -565,7 +538,6 @@ msgtap_accept(int lfd, short events, void *arg)
 	}
 
 	mtr->mtr_daemon = mtd;
-	TAILQ_INSERT_TAIL(&mtd->mtd_receivers, mtr, mtr_entry);
 
 	event_set(&mtr->mtr_ev, fd, EV_READ|EV_PERSIST, msgtap_recv, mtr);
 	event_add(&mtr->mtr_ev, NULL);
@@ -578,19 +550,23 @@ msgtap_recv(int fd, short events, void *arg)
 	struct msgtapd *mtd = mtr->mtr_daemon;
 	ssize_t rv;
 
+warnx("%s[%u] %s", __func__, __LINE__, mtl->mtl_path);
 	rv = recv(fd, mtd->mtd_buf, mtd->mtd_buflen, 0);
+warnx("%s[%u] %s", __func__, __LINE__, mtl->mtl_path);
 	if (rv == -1)
 		err(1, "recv");
 	if (rv == 0) {
+warnx("%s[%u] %s", __func__, __LINE__, mtl->mtl_path);
 		warnx("disconnected");
 		event_del(&mtr->mtr_ev);
 		close(EVENT_FD(&mtr->mtr_ev));
-		TAILQ_REMOVE(&mtd->mtd_receivers, mtr, mtr_entry);
 		free(mtr);
 		return;
 	}
 
+warnx("%s[%u] %s", __func__, __LINE__, mtl->mtl_path);
 	msgtap_dump(mtd->mtd_buf, rv);
+warnx("%s[%u] %s", __func__, __LINE__, mtl->mtl_path);
 
 	fflush(stdout);
 }

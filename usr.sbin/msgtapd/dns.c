@@ -37,6 +37,7 @@
 #include <msgtap/dns.h>
 
 #include "msgtapd.h"
+#include "msgtapc.h"
 #include "util.h"
 
 static void	dns_dump(const void *, size_t, size_t);
