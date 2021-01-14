@@ -176,13 +176,15 @@ listeners	: server
 
 server		: SERVER listener {
 			$2->mtl_accept = msgtapd_accept_server;
-			TAILQ_INSERT_TAIL(&mtd->mtd_listeners, $2, mtl_entry);
+			TAILQ_INSERT_TAIL(&mtd->mtd_server_listeners, $2,
+			    mtl_entry);
 		}
 		;
 
 client		: CLIENT listener {
 			$2->mtl_accept = msgtapd_accept_client;
-			TAILQ_INSERT_TAIL(&mtd->mtd_listeners, $2, mtl_entry);
+			TAILQ_INSERT_TAIL(&mtd->mtd_client_listeners, $2,
+			    mtl_entry);
 		}
 		;
 
@@ -638,7 +640,8 @@ parse_config(char *filename)
 	if (xmtd == NULL)
 		err(1, NULL);
 
-	TAILQ_INIT(&xmtd->mtd_listeners);
+	TAILQ_INIT(&xmtd->mtd_server_listeners);
+	TAILQ_INIT(&xmtd->mtd_client_listeners);
 	TAILQ_INIT(&xmtd->mtd_clients);
 
 	mtd = xmtd;
@@ -670,8 +673,14 @@ clear_config(struct msgtapd *xmtd)
 {
 	struct msgtap_listener *mtl;
 
-	while ((mtl = TAILQ_FIRST(&xmtd->mtd_listeners)) != NULL) {
-		TAILQ_REMOVE(&xmtd->mtd_listeners, mtl, mtl_entry);
+	while ((mtl = TAILQ_FIRST(&xmtd->mtd_server_listeners)) != NULL) {
+		TAILQ_REMOVE(&xmtd->mtd_server_listeners, mtl, mtl_entry);
+		free(mtl->mtl_path);
+		free(mtl);
+	}
+
+	while ((mtl = TAILQ_FIRST(&xmtd->mtd_client_listeners)) != NULL) {
+		TAILQ_REMOVE(&xmtd->mtd_client_listeners, mtl, mtl_entry);
 		free(mtl->mtl_path);
 		free(mtl);
 	}

@@ -44,6 +44,7 @@ struct msgtap_server {
 	struct event		 mts_ev;
 };
 
+static void	msgtapd_bind(struct msgtapd *, struct msgtap_listener *);
 static void	msgtap_accept(int, short, void *);
 static void	msgtap_recv(int, short, void *);
 static void	msgtap_closed(int, short, void *);
@@ -101,35 +102,28 @@ main(int argc, char *argv[])
 	if (mtd == NULL)
 		exit(1);
 
-	if (TAILQ_EMPTY(&mtd->mtd_listeners))
-		errx(1, "no listeners configured");
+	if (TAILQ_EMPTY(&mtd->mtd_server_listeners))
+		errx(1, "no server listeners configured");
+	if (TAILQ_EMPTY(&mtd->mtd_client_listeners))
+		errx(1, "no client listeners configured");
 
 	mtd->mtd_buflen = kern_sb_max();
 	mtd->mtd_buf = malloc(mtd->mtd_buflen);
 	if (mtd->mtd_buf == NULL)
 		err(1, "%zu buffer allocation", mtd->mtd_buflen);
 
-	TAILQ_FOREACH(mtl, &mtd->mtd_listeners, mtl_entry) {
-		int lfd;
-
-		if (sun_check(mtl->mtl_path) == -1)
-			err(1, "listener %s", mtl->mtl_path);
-
-		lfd = sun_bind(mtl->mtl_path);
-		if (lfd == -1) {
-			/* clean up? */
-			err(1, "bind %s", mtl->mtl_path);
-		}
-
-		if (listen(lfd, 5) == -1)
-			err(1, "listen %s", mtl->mtl_path);
-
-		event_set(&mtl->mtl_ev, lfd, 0, NULL, NULL);
+	TAILQ_FOREACH(mtl, &mtd->mtd_server_listeners, mtl_entry) {
+		msgtapd_bind(mtd, mtl);
 	}
 
 	event_init();
 
-	TAILQ_FOREACH(mtl, &mtd->mtd_listeners, mtl_entry) {
+	TAILQ_FOREACH(mtl, &mtd->mtd_server_listeners, mtl_entry) {
+		event_set(&mtl->mtl_ev, EVENT_FD(&mtl->mtl_ev),
+		    EV_READ|EV_PERSIST, msgtap_accept, mtl);
+		event_add(&mtl->mtl_ev, NULL);
+	}
+	TAILQ_FOREACH(mtl, &mtd->mtd_client_listeners, mtl_entry) {
 		event_set(&mtl->mtl_ev, EVENT_FD(&mtl->mtl_ev),
 		    EV_READ|EV_PERSIST, msgtap_accept, mtl);
 		event_add(&mtl->mtl_ev, NULL);
@@ -138,6 +132,26 @@ main(int argc, char *argv[])
 	event_dispatch();
 
 	return (0);
+}
+
+static void
+msgtapd_bind(struct msgtapd *mtd, struct msgtap_listener *mtl)
+{
+	int lfd;
+
+	if (sun_check(mtl->mtl_path) == -1)
+		err(1, "listener %s", mtl->mtl_path);
+
+	lfd = sun_bind(mtl->mtl_path);
+	if (lfd == -1) {
+		/* clean up? */
+		err(1, "bind %s", mtl->mtl_path);
+	}
+
+	if (listen(lfd, 5) == -1)
+		err(1, "listen %s", mtl->mtl_path);
+
+	event_set(&mtl->mtl_ev, lfd, 0, NULL, NULL);
 }
 
 static void

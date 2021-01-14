@@ -48,7 +48,8 @@ struct msgtapd {
 	void			*mtd_buf;
 	size_t			 mtd_buflen;
 
-	struct msgtap_listeners	 mtd_listeners;
+	struct msgtap_listeners	 mtd_server_listeners;
+	struct msgtap_listeners	 mtd_client_listeners;
 	struct msgtap_clients	 mtd_clients;
 };
 
