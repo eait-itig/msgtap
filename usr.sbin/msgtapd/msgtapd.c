@@ -54,14 +54,26 @@ struct msgtap_listener {
 
 TAILQ_HEAD(msgtap_listeners, msgtap_listener);
 
+struct msgtap_receiver {
+	struct msgtapd	*mtr_daemon;
+	TAILQ_ENTRY(msgtap_receiver)
+			 mtr_entry;
+	struct event	 mtr_ev;
+};
+
+TAILQ_HEAD(msgtap_receivers, msgtap_receiver);
+
 struct msgtapd {
 	void		*mtd_buf;
 	size_t		 mtd_buflen;
 
 	struct msgtap_listeners
 			 mtd_listeners;
+	struct msgtap_receivers
+			 mtd_receivers;
 };
 
+static void	msgtap_accept(int, short, void *);
 static void	msgtap_recv(int, short, void *);
 
 static size_t	kern_sb_max(void);
@@ -83,6 +95,7 @@ main(int argc, char *argv[])
 		.mtd_buf	= NULL,
 		.mtd_buflen	= 0,
 		.mtd_listeners	= TAILQ_HEAD_INITIALIZER(_mtd.mtd_listeners),
+		.mtd_receivers	= TAILQ_HEAD_INITIALIZER(_mtd.mtd_receivers),
 	};
 	struct msgtapd * const mtd = &_mtd; /* stupid c */
 	struct msgtap_listener *mtl;
@@ -122,7 +135,7 @@ main(int argc, char *argv[])
 		err(1, "%zu buffer allocation", mtd->mtd_buflen);
 
 	TAILQ_FOREACH(mtl, &mtd->mtd_listeners, mtl_entry) {
-		int fd;
+		int lfd;
 
 		/*
                  * narrow the toctou window, and try to avoid binding
@@ -131,21 +144,24 @@ main(int argc, char *argv[])
 		if (sun_check(mtl->mtl_path) == -1)
 			err(1, "listener %s", mtl->mtl_path);
 
-		fd = sun_bind(mtl->mtl_path);
-		if (fd == -1) {
+		lfd = sun_bind(mtl->mtl_path);
+		if (lfd == -1) {
 			/* clean up? */
 			err(1, "bind %s", mtl->mtl_path);
 		}
 
+		if (listen(lfd, 5) == -1)
+			err(1, "listen %s", mtl->mtl_path);
+
 		mtl->mtl_daemon = mtd;
-		event_set(&mtl->mtl_ev, fd, 0, NULL, NULL);
+		event_set(&mtl->mtl_ev, lfd, 0, NULL, NULL);
 	}
 
 	event_init();
 
 	TAILQ_FOREACH(mtl, &mtd->mtd_listeners, mtl_entry) {
 		event_set(&mtl->mtl_ev, EVENT_FD(&mtl->mtl_ev),
-		    EV_READ|EV_PERSIST, msgtap_recv, mtl);
+		    EV_READ|EV_PERSIST, msgtap_accept, mtl);
 		event_add(&mtl->mtl_ev, NULL);
 	}
 
@@ -528,18 +544,51 @@ msgtap_dump(const void *buf, size_t len)
 }
 
 static void
-msgtap_recv(int fd, short events, void *arg)
+msgtap_accept(int lfd, short events, void *arg)
 {
 	struct msgtap_listener *mtl = arg;
 	struct msgtapd *mtd = mtl->mtl_daemon;
+	struct msgtap_receiver *mtr;
+	int fd;
+
+	fd = accept4(lfd, NULL, 0, SOCK_NONBLOCK);
+	if (fd == -1) {
+		warn("%s accept", mtl->mtl_path);
+		return;
+	}
+
+	mtr = malloc(sizeof(*mtr));
+	if (mtr == NULL) {
+		warn("receiver alloc");
+		close(fd);
+		return;
+	}
+
+	mtr->mtr_daemon = mtd;
+	TAILQ_INSERT_TAIL(&mtd->mtd_receivers, mtr, mtr_entry);
+
+	event_set(&mtr->mtr_ev, fd, EV_READ|EV_PERSIST, msgtap_recv, mtr);
+	event_add(&mtr->mtr_ev, NULL);
+}
+
+static void
+msgtap_recv(int fd, short events, void *arg)
+{
+	struct msgtap_receiver *mtr = arg;
+	struct msgtapd *mtd = mtr->mtr_daemon;
 	ssize_t rv;
 
 	rv = recv(fd, mtd->mtd_buf, mtd->mtd_buflen, 0);
 	if (rv == -1)
-		err(1, "recv %s", mtl->mtl_path);
-
-	printf("%s:\n", mtl->mtl_path);
-	//hexdump(mtd->mtd_buf, rv);
+		err(1, "recv");
+	if (rv == 0) {
+		warnx("disconnected");
+		event_del(&mtr->mtr_ev);
+		close(EVENT_FD(&mtr->mtr_ev));
+		TAILQ_REMOVE(&mtd->mtd_receivers, mtr, mtr_entry);
+		free(mtr);
+		return;
+	}
 
 	msgtap_dump(mtd->mtd_buf, rv);
 

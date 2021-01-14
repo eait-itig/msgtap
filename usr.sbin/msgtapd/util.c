@@ -88,7 +88,7 @@ sun_check(const char *path)
 		return (-1);
 	}
 
-	fd = socket(AF_UNIX, SOCK_DGRAM, 0);
+	fd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
 	if (fd == -1)
 		return (-1);
 
@@ -118,7 +118,7 @@ sun_bind(const char *path)
 		return (-1);
 	}
 
-	fd = socket(AF_UNIX, SOCK_DGRAM | SOCK_NONBLOCK, 0);
+	fd = socket(AF_UNIX, SOCK_SEQPACKET | SOCK_NONBLOCK, 0);
 	if (fd == -1)
                 return (-1);
 
