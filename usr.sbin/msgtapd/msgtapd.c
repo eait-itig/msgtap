@@ -112,9 +112,10 @@ main(int argc, char *argv[])
 	if (mtd->mtd_buf == NULL)
 		err(1, "%zu buffer allocation", mtd->mtd_buflen);
 
-	TAILQ_FOREACH(mtl, &mtd->mtd_server_listeners, mtl_entry) {
+	TAILQ_FOREACH(mtl, &mtd->mtd_server_listeners, mtl_entry)
 		msgtapd_bind(mtd, mtl);
-	}
+	TAILQ_FOREACH(mtl, &mtd->mtd_client_listeners, mtl_entry)
+		msgtapd_bind(mtd, mtl);
 
 	event_init();
 
