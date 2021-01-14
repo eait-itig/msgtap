@@ -36,7 +36,6 @@
 #include <msgtap.h>
 #include <msgtap/dns.h>
 
-#include "msgtapd.h"
 #include "msgtapc.h"
 #include "util.h"
 

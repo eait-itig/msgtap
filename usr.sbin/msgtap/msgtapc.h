@@ -16,6 +16,10 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#ifndef nitems
+#define nitems(_a)	(sizeof((_a)) / sizeof((_a)[0]))
+#endif
+
 struct msgtap_md_type {
 	uint8_t		  mdt_id;
 	int		  mdt_len;
@@ -35,6 +39,12 @@ struct msgtap_md_class {
 	void		(*mdc_dump)(const void *, size_t, size_t);
 };
 
-void	msgtap_md_string(const struct msgtap_metadata *, const void *, size_t);
+void	msgtap_md_default(const struct msgtap_metadata *,
+	    const void *, size_t);
+void	msgtap_md_string(const struct msgtap_metadata *,
+	    const void *, size_t);
 
+extern const struct msgtap_md_class msgtap_md_class_base;
 extern const struct msgtap_md_class msgtap_md_class_dns;
+
+void	hexdump(const void *, size_t);

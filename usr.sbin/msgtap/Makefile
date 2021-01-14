@@ -2,7 +2,7 @@
 
 PROG=	msgtap
 SRCS=	msgtap.c
-SRCV+=	dns.c
+SRCS+=	base.c dns.c
 MAN=
 
 WARNINGS=Yes
