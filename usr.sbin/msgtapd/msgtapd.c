@@ -111,8 +111,6 @@ main(int argc, char *argv[])
 	TAILQ_FOREACH(mtl, &mtd->mtd_listeners, mtl_entry) {
 		int lfd;
 
-warnx("%s[%u] %s", __func__, __LINE__, mtl->mtl_path);
-
 		if (sun_check(mtl->mtl_path) == -1)
 			err(1, "listener %s", mtl->mtl_path);
 
@@ -131,7 +129,6 @@ warnx("%s[%u] %s", __func__, __LINE__, mtl->mtl_path);
 	event_init();
 
 	TAILQ_FOREACH(mtl, &mtd->mtd_listeners, mtl_entry) {
-warnx("%s[%u] %s", __func__, __LINE__, mtl->mtl_path);
 		event_set(&mtl->mtl_ev, EVENT_FD(&mtl->mtl_ev),
 		    EV_READ|EV_PERSIST, msgtap_accept, mtl);
 		event_add(&mtl->mtl_ev, NULL);
@@ -522,7 +519,6 @@ msgtap_accept(int lfd, short events, void *arg)
 	struct msgtapd *mtd = mtl->mtl_daemon;
 	struct msgtap_receiver *mtr;
 	int fd;
-warnx("%s[%u] %s", __func__, __LINE__, mtl->mtl_path);
 
 	fd = accept4(lfd, NULL, 0, SOCK_NONBLOCK);
 	if (fd == -1) {
@@ -550,13 +546,10 @@ msgtap_recv(int fd, short events, void *arg)
 	struct msgtapd *mtd = mtr->mtr_daemon;
 	ssize_t rv;
 
-warnx("%s[%u] %s", __func__, __LINE__, mtl->mtl_path);
 	rv = recv(fd, mtd->mtd_buf, mtd->mtd_buflen, 0);
-warnx("%s[%u] %s", __func__, __LINE__, mtl->mtl_path);
 	if (rv == -1)
 		err(1, "recv");
 	if (rv == 0) {
-warnx("%s[%u] %s", __func__, __LINE__, mtl->mtl_path);
 		warnx("disconnected");
 		event_del(&mtr->mtr_ev);
 		close(EVENT_FD(&mtr->mtr_ev));
@@ -564,9 +557,7 @@ warnx("%s[%u] %s", __func__, __LINE__, mtl->mtl_path);
 		return;
 	}
 
-warnx("%s[%u] %s", __func__, __LINE__, mtl->mtl_path);
 	msgtap_dump(mtd->mtd_buf, rv);
-warnx("%s[%u] %s", __func__, __LINE__, mtl->mtl_path);
 
 	fflush(stdout);
 }
