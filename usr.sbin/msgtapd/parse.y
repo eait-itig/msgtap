@@ -91,18 +91,20 @@ typedef struct {
 		int			 i;
 		int64_t			 number;
 		char			*string;
+		struct msgtap_listener	*mtl;
 	} v;
 	int lineno;
 } YYSTYPE;
 
 %}
 
-%token  RECEIVER LISTENER
+%token  SERVER CLIENT LISTENER
 %token	INCLUDE
 %token	ERROR
 %token	<v.string>		STRING
 %token	<v.number>		NUMBER
 %type	<v.string>		string path
+%type	<v.mtl>			listener
 
 %%
 
@@ -110,7 +112,7 @@ grammar		: /* empty */
 		| grammar '\n'
 		| grammar include '\n'
 		| grammar varset '\n'
-		| grammar receiver '\n'
+		| grammar listeners '\n'
 		| grammar error '\n'		{ file->errors++; }
 		;
 
@@ -168,17 +170,29 @@ optnl		: '\n' optnl
 nl		: '\n' optnl		/* one or more newlines */
 		;
 
-receiver	: RECEIVER path {
-			struct msgtap_listener *mtl;
+listeners	: server
+		| client
+		;
 
-			mtl = malloc(sizeof(*mtl));
-			if (mtl == NULL)
+server		: SERVER listener {
+			$2->mtl_accept = msgtapd_accept_server;
+			TAILQ_INSERT_TAIL(&mtd->mtd_listeners, $2, mtl_entry);
+		}
+		;
+
+client		: CLIENT listener {
+			$2->mtl_accept = msgtapd_accept_client;
+			TAILQ_INSERT_TAIL(&mtd->mtd_listeners, $2, mtl_entry);
+		}
+		;
+
+listener	: LISTENER path {
+			$$ = malloc(sizeof(*$$));
+			if ($$ == NULL)
 				err(1, NULL);
 
-			mtl->mtl_daemon = mtd;
-			mtl->mtl_path = $2;
-
-			TAILQ_INSERT_TAIL(&mtd->mtd_listeners, mtl, mtl_entry);
+			$$->mtl_daemon = mtd;
+			$$->mtl_path = $2;
 		}
 		;
 
@@ -223,7 +237,9 @@ lookup(char *s)
 {
 	/* this has to be sorted always */
 	static const struct keywords keywords[] = {
-		{ "receiver",		RECEIVER },
+		{ "client",		CLIENT },
+		{ "listener",		LISTENER },
+		{ "server",		SERVER },
 	};
 	const struct keywords	*p;
 

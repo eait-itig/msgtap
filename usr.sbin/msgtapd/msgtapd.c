@@ -517,7 +517,6 @@ msgtap_accept(int lfd, short events, void *arg)
 {
 	struct msgtap_listener *mtl = arg;
 	struct msgtapd *mtd = mtl->mtl_daemon;
-	struct msgtap_receiver *mtr;
 	int fd;
 
 	fd = accept4(lfd, NULL, 0, SOCK_NONBLOCK);
@@ -525,6 +524,14 @@ msgtap_accept(int lfd, short events, void *arg)
 		warn("%s accept", mtl->mtl_path);
 		return;
 	}
+
+	mtl->mtl_accept(mtd, fd);
+}
+
+void
+msgtapd_accept_server(struct msgtapd *mtd, int fd)
+{
+	struct msgtap_receiver *mtr;
 
 	mtr = malloc(sizeof(*mtr));
 	if (mtr == NULL) {
@@ -537,6 +544,13 @@ msgtap_accept(int lfd, short events, void *arg)
 
 	event_set(&mtr->mtr_ev, fd, EV_READ|EV_PERSIST, msgtap_recv, mtr);
 	event_add(&mtr->mtr_ev, NULL);
+}
+
+void
+msgtapd_accept_client(struct msgtapd *mtd, int fd)
+{
+	warnx("%s", __func__);
+	close(fd);
 }
 
 static void

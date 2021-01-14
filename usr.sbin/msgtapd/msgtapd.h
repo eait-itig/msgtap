@@ -29,6 +29,8 @@ struct msgtap_listener {
 	TAILQ_ENTRY(msgtap_listener)
 				 mtl_entry;
 	struct event		 mtl_ev;
+
+	void (*mtl_accept)(struct msgtapd *, int);
 };
 
 TAILQ_HEAD(msgtap_listeners, msgtap_listener);
@@ -42,3 +44,6 @@ struct msgtapd {
 
 int			 cmdline_symset(char *);
 struct msgtapd		*parse_config(char *);
+
+void			 msgtapd_accept_server(struct msgtapd *, int);
+void			 msgtapd_accept_client(struct msgtapd *, int);
