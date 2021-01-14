@@ -567,7 +567,9 @@ msgtap_recv(int fd, short events, void *arg)
 {
 	struct msgtap_server *mts = arg;
 	struct msgtapd *mtd = mts->mts_daemon;
+	struct msgtap_client *mtc;
 	ssize_t rv;
+	ssize_t len;
 
 	rv = recv(fd, mtd->mtd_buf, mtd->mtd_buflen, 0);
 	if (rv == -1)
@@ -580,7 +582,15 @@ msgtap_recv(int fd, short events, void *arg)
 		return;
 	}
 
-	msgtap_dump(mtd->mtd_buf, rv);
+	len = rv;
+
+	msgtap_dump(mtd->mtd_buf, len);
+
+	TAILQ_FOREACH(mtc, &mtd->mtd_clients, mtc_entry) {
+		rv = write(EVENT_FD(&mtc->mtc_ev), mtd->mtd_buf, len);
+		if (rv == -1)
+			err(1, "client send");
+	}
 
 	fflush(stdout);
 }
