@@ -1,7 +1,7 @@
 # $OpenBSD$
 
 PROG=	msgtapd
-SRCS=	msgtapd.c dns.c parse.y
+SRCS=	msgtapd.c parse.y
 SRCS+=	util.c
 MAN=
 
