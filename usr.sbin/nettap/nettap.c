@@ -76,7 +76,7 @@ struct nettap {
 
 	struct event	 nt_sigalarm;
 
-	int		 nt_msgtap;
+	struct event	 nt_msgtap;
 };
 
 static void	msgtap_open(int, const struct passwd *);
@@ -89,7 +89,9 @@ static void	bpf_interface_read(int, short, void *);
 
 static void	nettap_msg(struct nettap *, struct bpf_interface *,
 		    const struct bpf_hdr *, size_t, const void *, size_t);
+static void	msgtap_pipe(int, short, void *);
 
+static int	setnbio(int, int);
 void		hexdump(const void *, size_t);
 
 __dead static void
@@ -125,12 +127,6 @@ main(int argc, char *argv[])
 	if (pw == NULL)
 		errx(1, "no %s user", NETTAP_USER);
 
-	if (pipe(pipefds) == -1)
-		err(1, "socketpair");
-
-	/* wire up msgtap */
-	msgtap_open(pipefds[0], pw);
-
 	while ((ch = getopt(argc, argv, "i:")) != -1) {
 		switch (ch) {
 		case 'i':
@@ -151,6 +147,15 @@ main(int argc, char *argv[])
 
 	if (TAILQ_EMPTY(&nt->nt_bifs))
 		usage();
+
+	if (pipe(pipefds) == -1)
+		err(1, "socketpair");
+
+	/* wire up msgtap */
+	msgtap_open(pipefds[0], pw);
+
+	if (setnbio(pipefds[1], 1) == -1)
+		err(1, "set pipe non-blocking");
 
 	if (chroot(pw->pw_dir) == -1)
 		err(1, "chroot %s", pw->pw_dir);
@@ -179,7 +184,9 @@ main(int argc, char *argv[])
 
 	nettap_itimer(nt, 1000);
 
-	nt->nt_msgtap = pipefds[1];
+	event_set(&nt->nt_msgtap, pipefds[1], EV_READ | EV_PERSIST,
+	    msgtap_pipe, nt);
+	event_add(&nt->nt_msgtap, NULL);
 
 	event_dispatch();
 
@@ -199,6 +206,7 @@ msgtap_open(int fd, const struct passwd *pw)
 		break;
 	default:
 		/* parent */
+		close(fd);
 		return;
 	}
 
@@ -213,8 +221,15 @@ msgtap_open(int fd, const struct passwd *pw)
 		err(1, "msgtap dup stdin");
 	close(fd);
 
-	if (execv("../msgtap/obj/msgtap", argv) == -1)
+	if (execv("/opt/local/sbin/msgtap", argv) == -1)
 		err(1, "exec msgtap");
+}
+
+static void
+msgtap_pipe(int pfd, short events, void *arg)
+{
+	/* we should only get here if the pipe closes */
+	exit(1);
 }
 
 static void
@@ -307,7 +322,7 @@ bpf_interface_open(struct nettap *nt, const char *arg)
 		bif->bif_dlt = dlt;
 	}
 
-	bpf = open(BPF_DEV, O_RDWR|O_NONBLOCK);
+	bpf = open(BPF_DEV, O_RDWR|O_NONBLOCK|O_CLOEXEC);
 	if (bpf == -1)
 		err(1, "%s", BPF_DEV);
 
@@ -474,10 +489,16 @@ nettap_msg(struct nettap *nt, struct bpf_interface *bif,
 	}
 
 
-	msgtap_write(nt->nt_msgtap, mt, msglen, buf, buflen);
+	msgtap_write(EVENT_FD(&nt->nt_msgtap), mt, msglen, buf, buflen);
 
 drop:
 	mt_msg_free(mt);
+}
+
+static int
+setnbio(int fd, int opt)
+{
+	return (ioctl(fd, FIONBIO, &opt));
 }
 
 static int
