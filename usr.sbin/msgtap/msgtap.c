@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
 #include <err.h>
@@ -34,6 +35,8 @@
 #include "msgtapc.h"
 
 #define MSGTAPD_DEFAULT_SOCKET "/var/run/msgtap.sock"
+
+static const char msgtapd_socket[] = MSGTAPD_DEFAULT_SOCKET;
 
 struct msgbuf {
 	uint8_t	*mb_data;
@@ -53,7 +56,7 @@ usage(void)
 {
 	extern char *__progname;
 
-	fprintf(stderr, "usage: %s [-s /path/to/msgtap.sock]\n", __progname);
+	fprintf(stderr, "usage: %s (-f filename|-s sockname)\n", __progname);
 
 	exit(1);
 }
@@ -61,13 +64,17 @@ usage(void)
 int
 main(int argc, char *argv[])
 {
-	const char *sockname = MSGTAPD_DEFAULT_SOCKET;
+	const char *sockname = msgtapd_socket;
+	const char *filename = NULL;
 	struct msgbuf mb;
 	int ch;
-	int s;
+	int fd;
 
-	while ((ch = getopt(argc, argv, "s:")) != -1) {
+	while ((ch = getopt(argc, argv, "f:s:")) != -1) {
 		switch (ch) {
+		case 'f':
+			filename = optarg;
+			break;
 		case 's':
 			sockname = optarg;
 			break;
@@ -77,9 +84,22 @@ main(int argc, char *argv[])
 		}
 	}
 
-	s = msgtap_connect(sockname);
-	if (s == -1)
-		err(1, "%s", sockname);
+	if (filename != NULL && sockname != msgtapd_socket)
+		usage();
+
+	if (filename != NULL) {
+		if (strcmp(filename, "-") == 0)
+			fd = STDIN_FILENO;
+		else {
+			fd = open(filename, O_RDONLY);
+			if (fd == -1)
+				err(1, "%s", filename);
+		}
+	} else {
+		fd = msgtap_connect(sockname);
+		if (fd == -1)
+			err(1, "%s", sockname);
+	}
 
 	mb.mb_datalen = SB_MAX;
 	mb.mb_data = malloc(mb.mb_datalen);
@@ -88,7 +108,7 @@ main(int argc, char *argv[])
 	mb.mb_dataoff = 0;
 
 	for (;;) {
-		msgtap_read(&mb, s);
+		msgtap_read(&mb, fd);
 	}
 
 	return (0);

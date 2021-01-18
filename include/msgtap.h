@@ -62,11 +62,17 @@ struct msgtap_header {
 #define MSGTAP_F_VERSION	0xf000
 #define MSGTAP_F_VERSION_0		0x0000
 	uint16_t	mh_type;
-#define MSGTAP_TYPE_DNS		53
 	uint32_t	mh_metalen;	/* length of all metadata in bytes */
 	uint32_t	mh_msglen;	/* original message length in bytes */
 	uint32_t	mh_caplen;	/* captured message bytes */
 };
+
+#define MSGTAP_TYPE_DNS		53
+
+#define MSGTAP_TYPE_IPV4	0x0800
+#define MSGTAP_TYPE_IPV6	0x86dd
+#define MSGTAP_TYPE_MPLS	0x8847
+#define MSGTAP_TYPE_ETHERNET	0x6558
 
 /*
  * msgtap metadata:

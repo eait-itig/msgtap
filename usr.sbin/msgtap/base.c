@@ -72,6 +72,17 @@ msgtap_md_default(const struct msgtap_metadata *md,
 	printf("|");
 }
 
+void
+msgtap_md_hex(const struct msgtap_metadata *md,
+    const void *buf, size_t buflen)
+{
+	const uint8_t *data = buf;
+	size_t i;
+
+	for (i = 0; i < buflen; i++)
+		printf("%02x", data[i]);
+}
+
 static void
 msgtap_md_ts(const struct msgtap_metadata *md,
     const void *buf, size_t buflen)
@@ -105,6 +116,14 @@ msgtap_md_tm(const struct msgtap_metadata *md,
 }
 
 static void
+msgtap_md_u8(const struct msgtap_metadata *md,
+    const void *buf, size_t buflen)
+{
+	const uint8_t *u8p = buf;
+	printf("%u", *u8p);
+}
+
+static void
 msgtap_md_u16(const struct msgtap_metadata *md,
     const void *buf, size_t buflen)
 {
@@ -129,6 +148,24 @@ msgtap_md_u64(const struct msgtap_metadata *md,
 	uint64_t u64;
 	memcpy(&u64, buf, sizeof(u64));
 	printf("%llu", betoh64(u64));
+}
+
+static void
+msgtap_md_x16(const struct msgtap_metadata *md,
+    const void *buf, size_t buflen)
+{
+	uint16_t u16;
+	memcpy(&u16, buf, sizeof(u16));
+	printf("%04x", betoh16(u16));
+}
+
+static void
+msgtap_md_x32(const struct msgtap_metadata *md,
+    const void *buf, size_t buflen)
+{
+	uint32_t u32;
+	memcpy(&u32, buf, sizeof(u32));
+	printf("%08x", betoh32(u32));
 }
 
 static void
@@ -198,8 +235,6 @@ msgtap_md_net_dir(const struct msgtap_metadata *md,
 }
 
 #define msgtap_md_port msgtap_md_u16
-#define msgtap_md_net_prio msgtap_md_default
-#define msgtap_md_net_flowid msgtap_md_default
 
 static const struct msgtap_md_type msgtap_md_types_base[] = {
 	{ MSGTAP_T_PAD,		-1,	"pad",		msgtap_md_pad },
@@ -228,10 +263,10 @@ static const struct msgtap_md_type msgtap_md_types_base[] = {
 					"duration",	msgtap_md_tm },
 
 	{ MSGTAP_T_NET_PRIO,	MSGTAP_T_NET_PRIO_LEN,
-					"net-prio",	msgtap_md_net_prio },
+					"net-prio",	msgtap_md_u8 },
 	{ MSGTAP_T_NET_DIR,	MSGTAP_T_NET_DIR_LEN,
 					"net-dir",	msgtap_md_net_dir },
-	{ MSGTAP_T_NET_FLOWID,	-1,	"net-flowid",	msgtap_md_net_flowid },
+	{ MSGTAP_T_NET_FLOWID,	-1,	"net-flowid",	msgtap_md_hex },
 
 	{ MSGTAP_T_IP,		0,	"IP",		NULL },
 	{ MSGTAP_T_IPV4,	0,	"IPv4",		NULL },
