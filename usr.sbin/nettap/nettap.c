@@ -175,6 +175,8 @@ main(int argc, char *argv[])
 	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))
 		errx(1, "can't drop privileges");
 
+	endpwent();
+
 	event_init();
 
 	TAILQ_FOREACH(bif, &nt->nt_bifs, bif_entry) {
@@ -468,6 +470,10 @@ nettap_msg(struct nettap *nt, struct bpf_interface *bif,
 	nsec += (uint64_t)bh->bh_tstamp.tv_usec * 1000U;
 
 	if (mt_msg_add_u64(mt, MSGTAP_CLASS_BASE, MSGTAP_T_TS, nsec) == -1)
+		goto drop;
+
+	if (mt_msg_add_u64(mt, MSGTAP_CLASS_BASE, MSGTAP_T_TS_PRECISION,
+	    1000) == -1)
 		goto drop;
 
 	if (mt_msg_add_bytes(mt, MSGTAP_CLASS_BASE, MSGTAP_T_COMPONENT,

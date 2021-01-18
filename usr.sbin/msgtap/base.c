@@ -106,7 +106,7 @@ msgtap_md_ts(const struct msgtap_metadata *md,
 }
 
 static void
-msgtap_md_tm(const struct msgtap_metadata *md,
+msgtap_md_nsec(const struct msgtap_metadata *md,
     const void *buf, size_t buflen)
 {
 	uint64_t nsec;
@@ -241,8 +241,12 @@ static const struct msgtap_md_type msgtap_md_types_base[] = {
 					"seq",		msgtap_md_u64 },
 	{ MSGTAP_T_TS,		MSGTAP_T_TS_LEN,
 					"timestamp",	msgtap_md_ts },
+	{ MSGTAP_T_TS_PRECISION,
+				MSGTAP_T_TS_PRECISION_LEN,
+					"timestamp-precision",
+							msgtap_md_nsec },
 	{ MSGTAP_T_TM,		MSGTAP_T_TM_LEN,
-					"duration",	msgtap_md_tm },
+					"duration",	msgtap_md_nsec },
 
 	{ MSGTAP_T_NET_PRIO,	MSGTAP_T_NET_PRIO_LEN,
 					"net-prio",	msgtap_md_u8 },
