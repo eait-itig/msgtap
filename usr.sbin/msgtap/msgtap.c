@@ -35,8 +35,14 @@
 
 #define MSGTAPD_DEFAULT_SOCKET "/var/run/msgtap.sock"
 
+struct msgbuf {
+	uint8_t	*mb_data;
+	size_t	 mb_datalen;
+	size_t	 mb_dataoff;
+};
+
 static int	msgtap_connect(const char *);
-static void	msgtap_recv(int);
+static void	msgtap_read(struct msgbuf *, int);
 
 static int	msgtap_dump(const void *, size_t);
 
@@ -56,6 +62,7 @@ int
 main(int argc, char *argv[])
 {
 	const char *sockname = MSGTAPD_DEFAULT_SOCKET;
+	struct msgbuf mb;
 	int ch;
 	int s;
 
@@ -74,8 +81,14 @@ main(int argc, char *argv[])
 	if (s == -1)
 		err(1, "%s", sockname);
 
+	mb.mb_datalen = SB_MAX;
+	mb.mb_data = malloc(mb.mb_datalen);
+	if (mb.mb_data == NULL)
+		err(1, "message buffer allocation");
+	mb.mb_dataoff = 0;
+
 	for (;;) {
-		msgtap_recv(s);
+		msgtap_read(&mb, s);
 	}
 
 	return (0);
@@ -95,7 +108,7 @@ msgtap_connect(const char *sockname)
 		return (-1);
 	}
 
-	s = socket(AF_UNIX, SOCK_SEQPACKET, 0);
+	s = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (s == -1)
 		return (-1);
 
@@ -108,18 +121,61 @@ msgtap_connect(const char *sockname)
 }
 
 static void
-msgtap_recv(int s)
+msgtap_read(struct msgbuf *mb, int s)
 {
-	static char buffer[SB_MAX];
+	struct msgtap_header mh;
 	ssize_t rv;
 
-	rv = recv(s, buffer, sizeof(buffer), 0);
+	uint8_t *buf;
+	size_t len, msglen;
+
+	rv = read(s, mb->mb_data + mb->mb_dataoff,
+	    mb->mb_datalen - mb->mb_dataoff);
 	if (rv == -1)
-		err(1, "recv");
+		err(1, "read");
 	if (rv == 0)
 		exit(0);
 
-	msgtap_dump(buffer, rv);
+	buf = mb->mb_data;
+	len = mb->mb_dataoff + rv;
+
+	do {
+		if (len < sizeof(mh)) {
+			if (buf != mb->mb_data)
+				memmove(mb->mb_data, buf, len);
+			mb->mb_dataoff = len;
+			return;
+		}
+
+		memcpy(&mh, buf, sizeof(mh));
+
+		msglen = sizeof(mh) + betoh32(mh.mh_metalen) +
+		    betoh32(mh.mh_caplen);
+		if (len < msglen) {
+			if (buf != mb->mb_data)
+				memmove(mb->mb_data, buf, len);
+			if (msglen == mb->mb_datalen) {
+				/* get some more space */
+				mb->mb_data = realloc(mb->mb_data, msglen);
+				if (mb->mb_data == NULL) {
+					err(1, "message buffer resize to %zu",
+					    msglen);
+				}
+				mb->mb_datalen = msglen;
+			}
+
+			mb->mb_dataoff = len;
+			return;
+		}
+
+		msgtap_dump(buf, msglen);
+
+		buf += msglen;
+		len -= msglen;
+	} while (len > 0);
+
+	/* all the pending messages have been consumed, restart */
+	mb->mb_dataoff = 0;
 }
 
 static const struct msgtap_md_type *

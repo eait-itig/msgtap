@@ -21,7 +21,7 @@
 
 void	hexdump(const void *, size_t);
 
-int	sun_check(const char *);
-int	sun_bind(const char *);
+int	sun_check(const char *, int);
+int	sun_bind(const char *, int);
 
 #endif /* _MSGTAPD_UTIL_H_ */

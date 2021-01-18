@@ -43,10 +43,12 @@ struct msgtap_server {
 	struct event		 mts_ev;
 };
 
-static void	msgtapd_bind(struct msgtapd *, struct msgtap_listener *);
+static void	msgtapd_bind(struct msgtapd *, struct msgtap_listener *, int);
 static void	msgtap_accept(int, short, void *);
 static void	msgtap_recv(int, short, void *);
-static void	msgtap_closed(int, short, void *);
+static void	msgtap_client_closed(int, short, void *);
+static void	msgtap_client_flush(int, short, void *);
+static void	msgtap_client_close(struct msgtap_client *);
 
 static size_t	kern_sb_max(void);
 
@@ -112,9 +114,9 @@ main(int argc, char *argv[])
 		err(1, "%zu buffer allocation", mtd->mtd_buflen);
 
 	TAILQ_FOREACH(mtl, &mtd->mtd_server_listeners, mtl_entry)
-		msgtapd_bind(mtd, mtl);
+		msgtapd_bind(mtd, mtl, SOCK_SEQPACKET);
 	TAILQ_FOREACH(mtl, &mtd->mtd_client_listeners, mtl_entry)
-		msgtapd_bind(mtd, mtl);
+		msgtapd_bind(mtd, mtl, SOCK_STREAM);
 
 	event_init();
 
@@ -135,14 +137,14 @@ main(int argc, char *argv[])
 }
 
 static void
-msgtapd_bind(struct msgtapd *mtd, struct msgtap_listener *mtl)
+msgtapd_bind(struct msgtapd *mtd, struct msgtap_listener *mtl, int type)
 {
 	int lfd;
 
-	if (sun_check(mtl->mtl_path) == -1)
+	if (sun_check(mtl->mtl_path, type) == -1)
 		err(1, "listener %s", mtl->mtl_path);
 
-	lfd = sun_bind(mtl->mtl_path);
+	lfd = sun_bind(mtl->mtl_path, type);
 	if (lfd == -1) {
 		/* clean up? */
 		err(1, "bind %s", mtl->mtl_path);
@@ -171,7 +173,7 @@ msgtap_accept(int lfd, short events, void *arg)
 }
 
 void
-msgtapd_accept_server(struct msgtapd *mtd, int fd)
+msgtapd_server_accept(struct msgtapd *mtd, int fd)
 {
 	struct msgtap_server *mts;
 
@@ -193,9 +195,9 @@ msgtap_recv(int fd, short events, void *arg)
 {
 	struct msgtap_server *mts = arg;
 	struct msgtapd *mtd = mts->mts_daemon;
-	struct msgtap_client *mtc;
+	struct msgtap_client *mtc, *nmtc;
 	ssize_t rv;
-	ssize_t len;
+	size_t rlen, wlen;
 
 	rv = recv(fd, mtd->mtd_buf, mtd->mtd_buflen, 0);
 	if (rv == -1)
@@ -208,19 +210,49 @@ msgtap_recv(int fd, short events, void *arg)
 		return;
 	}
 
-	len = rv;
+	rlen = rv;
 
-	TAILQ_FOREACH(mtc, &mtd->mtd_clients, mtc_entry) {
-		rv = write(EVENT_FD(&mtc->mtc_ev), mtd->mtd_buf, len);
+	TAILQ_FOREACH_SAFE(mtc, &mtd->mtd_clients, mtc_entry, nmtc) {
+		if (mtc->mtc_buf != NULL) {
+			warnx("drop");
+			/* this client is already busy, drop this message */
+			continue;
+		}
+
+		rv = write(EVENT_FD(&mtc->mtc_wrev), mtd->mtd_buf, rlen);
 		if (rv == -1)
 			err(1, "client send");
-	}
 
-	fflush(stdout);
+		wlen = rv;
+		if (wlen < rlen) {
+			size_t len;
+			/*
+                         * the client is busy, buffer the remainder
+                         * of this message.
+			 */
+
+			len = rlen - wlen;
+			mtc->mtc_buf = malloc(len);
+			if (mtc->mtc_buf == NULL) {
+                                /* oh noes! we've run out of memory.
+                                 * we could die, or we could kill this
+                                 * client to try and recover.
+				 */
+				msgtap_client_close(mtc);
+				continue;
+			}
+
+			memcpy(mtc->mtc_buf, mtd->mtd_buf + wlen, len);
+			mtc->mtc_buflen = len;
+			mtc->mtc_bufoff = 0;
+
+			event_add(&mtc->mtc_wrev, NULL);
+		}
+	}
 }
 
 void
-msgtapd_accept_client(struct msgtapd *mtd, int fd)
+msgtapd_client_accept(struct msgtapd *mtd, int fd)
 {
 	struct msgtap_client *mtc;
 
@@ -234,27 +266,77 @@ msgtapd_accept_client(struct msgtapd *mtd, int fd)
 	mtc->mtc_daemon = mtd;
 	TAILQ_INSERT_TAIL(&mtd->mtd_clients, mtc, mtc_entry);
 
-	event_set(&mtc->mtc_ev, fd, EV_READ|EV_PERSIST, msgtap_closed, mtc);
-	event_add(&mtc->mtc_ev, NULL);
+	event_set(&mtc->mtc_rdev, fd, EV_READ|EV_PERSIST,
+	    msgtap_client_closed, mtc);
+	event_add(&mtc->mtc_rdev, NULL);
+
+	event_set(&mtc->mtc_wrev, fd, EV_WRITE, msgtap_client_flush, mtc);
+	mtc->mtc_buf = NULL;
 }
 
 static void
-msgtap_closed(int fd, short events, void *arg)
+msgtap_client_closed(int fd, short events, void *arg)
 {
 	struct msgtap_client *mtc = arg;
 	struct msgtapd *mtd = mtc->mtc_daemon;
 	ssize_t rv;
 
-	rv = recv(fd, mtd->mtd_buf, mtd->mtd_buflen, 0);
+	rv = read(fd, mtd->mtd_buf, mtd->mtd_buflen);
 	if (rv == -1)
 		err(1, "client recv");
 	if (rv == 0) {
-		event_del(&mtc->mtc_ev);
-		close(EVENT_FD(&mtc->mtc_ev));
-		TAILQ_REMOVE(&mtd->mtd_clients, mtc, mtc_entry);
-		free(mtc);
+		msgtap_client_close(mtc);
 		return;
 	}
+}
+
+static void
+msgtap_client_flush(int fd, short events, void *arg)
+{
+	struct msgtap_client *mtc = arg;
+	ssize_t rv;
+
+	rv = write(fd, mtc->mtc_buf + mtc->mtc_bufoff,
+	    mtc->mtc_buflen - mtc->mtc_bufoff);
+	if (rv == -1) {
+		switch (errno) {
+		case EINTR:
+		case EAGAIN:
+			/* try again */
+			event_add(&mtc->mtc_wrev, NULL);
+			break;
+		default:
+			warn("client write");
+			msgtap_client_close(mtc);
+			break;
+		}
+
+		return;
+	}
+
+	mtc->mtc_bufoff += rv;
+	if (mtc->mtc_bufoff < mtc->mtc_buflen) {
+		/* some more work to do */
+		event_add(&mtc->mtc_wrev, NULL);
+		return;
+	}
+
+	/* done */
+	free(mtc->mtc_buf);
+	mtc->mtc_buf = NULL;
+}
+
+static void
+msgtap_client_close(struct msgtap_client *mtc)
+{
+	struct msgtapd *mtd = mtc->mtc_daemon;
+
+	event_del(&mtc->mtc_rdev);
+	event_del(&mtc->mtc_wrev);
+	free(mtc->mtc_buf);
+	close(EVENT_FD(&mtc->mtc_rdev));
+	TAILQ_REMOVE(&mtd->mtd_clients, mtc, mtc_entry);
+	free(mtc);
 }
 
 static size_t

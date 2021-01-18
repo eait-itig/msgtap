@@ -39,13 +39,18 @@ struct msgtap_client {
 	struct msgtapd		*mtc_daemon;
 	TAILQ_ENTRY(msgtap_client)
 				 mtc_entry;
-	struct event		 mtc_ev;
+	struct event		 mtc_rdev;
+	struct event		 mtc_wrev;
+
+	uint8_t			*mtc_buf;
+	size_t			 mtc_buflen;
+	size_t			 mtc_bufoff;
 };
 
 TAILQ_HEAD(msgtap_clients, msgtap_client);
 
 struct msgtapd {
-	void			*mtd_buf;
+	uint8_t			*mtd_buf;
 	size_t			 mtd_buflen;
 
 	struct msgtap_listeners	 mtd_server_listeners;
@@ -56,5 +61,5 @@ struct msgtapd {
 int			 cmdline_symset(char *);
 struct msgtapd		*parse_config(char *);
 
-void			 msgtapd_accept_server(struct msgtapd *, int);
-void			 msgtapd_accept_client(struct msgtapd *, int);
+void			 msgtapd_server_accept(struct msgtapd *, int);
+void			 msgtapd_client_accept(struct msgtapd *, int);

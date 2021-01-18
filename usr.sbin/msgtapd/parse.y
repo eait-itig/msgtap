@@ -175,14 +175,14 @@ listeners	: server
 		;
 
 server		: SERVER listener {
-			$2->mtl_accept = msgtapd_accept_server;
+			$2->mtl_accept = msgtapd_server_accept;
 			TAILQ_INSERT_TAIL(&mtd->mtd_server_listeners, $2,
 			    mtl_entry);
 		}
 		;
 
 client		: CLIENT listener {
-			$2->mtl_accept = msgtapd_accept_client;
+			$2->mtl_accept = msgtapd_client_accept;
 			TAILQ_INSERT_TAIL(&mtd->mtd_client_listeners, $2,
 			    mtl_entry);
 		}

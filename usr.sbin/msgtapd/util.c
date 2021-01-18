@@ -77,7 +77,7 @@ hexdump(const void *d, size_t datalen)
 
 /* This used to be control_check() - dlg */
 int
-sun_check(const char *path)
+sun_check(const char *path, int type)
 {
 	struct sockaddr_un	 sun = { .sun_family = AF_UNIX };
 	int			 fd;
@@ -88,7 +88,7 @@ sun_check(const char *path)
 		return (-1);
 	}
 
-	fd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
+	fd = socket(AF_UNIX, type, 0);
 	if (fd == -1)
 		return (-1);
 
@@ -106,7 +106,7 @@ sun_check(const char *path)
 #include <err.h>
 
 int
-sun_bind(const char *path)
+sun_bind(const char *path, int type)
 {
 	struct sockaddr_un	 sun = { .sun_family = AF_UNIX };
 	int			 fd, rv;
@@ -118,7 +118,7 @@ sun_bind(const char *path)
 		return (-1);
 	}
 
-	fd = socket(AF_UNIX, SOCK_SEQPACKET | SOCK_NONBLOCK, 0);
+	fd = socket(AF_UNIX, type | SOCK_NONBLOCK, 0);
 	if (fd == -1)
                 return (-1);
 
