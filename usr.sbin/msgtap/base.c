@@ -72,7 +72,7 @@ msgtap_md_default(const struct msgtap_metadata *md,
 	printf("|");
 }
 
-void
+static void
 msgtap_md_hex(const struct msgtap_metadata *md,
     const void *buf, size_t buflen)
 {
@@ -148,24 +148,6 @@ msgtap_md_u64(const struct msgtap_metadata *md,
 	uint64_t u64;
 	memcpy(&u64, buf, sizeof(u64));
 	printf("%llu", betoh64(u64));
-}
-
-static void
-msgtap_md_x16(const struct msgtap_metadata *md,
-    const void *buf, size_t buflen)
-{
-	uint16_t u16;
-	memcpy(&u16, buf, sizeof(u16));
-	printf("%04x", betoh16(u16));
-}
-
-static void
-msgtap_md_x32(const struct msgtap_metadata *md,
-    const void *buf, size_t buflen)
-{
-	uint32_t u32;
-	memcpy(&u32, buf, sizeof(u32));
-	printf("%08x", betoh32(u32));
 }
 
 static void
