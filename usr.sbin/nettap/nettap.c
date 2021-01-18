@@ -29,6 +29,7 @@
 
 #include <sys/queue.h>
 #include <sys/socket.h>
+#include <sys/param.h> /* for gethostname */
 
 #include <sys/ioctl.h>
 #include <net/if.h>
@@ -68,6 +69,8 @@ struct bpf_interface {
 TAILQ_HEAD(bpf_interfaces, bpf_interface);
 
 struct nettap {
+	const char	*nt_hostname;
+	size_t		 nt_hostnamelen;
 	struct bpf_interfaces
 			 nt_bifs;
 	unsigned int	 nt_snaplen;
@@ -83,6 +86,7 @@ static void	msgtap_open(int, const struct passwd *);
 
 static void	nettap_itimer(struct nettap *, unsigned long long);
 static void	nettap_tick(int, short, void *);
+static void	nettap_hostname(struct nettap *);
 
 static void	bpf_interface_open(struct nettap *, const char *);
 static void	bpf_interface_read(int, short, void *);
@@ -176,6 +180,8 @@ main(int argc, char *argv[])
 		errx(1, "can't drop privileges");
 
 	endpwent();
+
+	nettap_hostname(nt);
 
 	event_init();
 
@@ -299,6 +305,21 @@ nettap_tick(int sig, short events, void *arg)
 
 	TAILQ_FOREACH(bif, &nt->nt_bifs, bif_entry)
 		bpf_interface_read(EVENT_FD(&bif->bif_ev), 0, bif);
+}
+
+static void
+nettap_hostname(struct nettap *nt)
+{
+	char hostname[MAXHOSTNAMELEN];
+
+	if (gethostname(hostname, sizeof(hostname)) == -1)
+		err(1, "get hostname");
+
+	nt->nt_hostname = strdup(hostname);
+	if (nt->nt_hostname == NULL)
+		err(1, "hostname alloc");
+
+	nt->nt_hostnamelen = strlen(nt->nt_hostname);
 }
 
 static void
@@ -474,6 +495,10 @@ nettap_msg(struct nettap *nt, struct bpf_interface *bif,
 
 	if (mt_msg_add_u64(mt, MSGTAP_CLASS_BASE, MSGTAP_T_TS_PRECISION,
 	    1000) == -1)
+		goto drop;
+
+	if (mt_msg_add_bytes(mt, MSGTAP_CLASS_BASE, MSGTAP_T_HOSTNAME,
+	    nt->nt_hostname, nt->nt_hostnamelen) == -1)
 		goto drop;
 
 	if (mt_msg_add_bytes(mt, MSGTAP_CLASS_BASE, MSGTAP_T_COMPONENT,
