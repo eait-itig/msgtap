@@ -114,6 +114,7 @@ main(int argc, char *argv[])
 	};
 	struct nettap * const nt = &_nt;
 	struct bpf_interface *bif;
+	int promisc = 0;
 
 	int ch;
 	int pipefds[2];
@@ -127,12 +128,19 @@ main(int argc, char *argv[])
 	if (pw == NULL)
 		errx(1, "no %s user", NETTAP_USER);
 
-	while ((ch = getopt(argc, argv, "i:")) != -1) {
+	while ((ch = getopt(argc, argv, "i:Pp")) != -1) {
 		switch (ch) {
 		case 'i':
 			bpf_interface_open(nt, optarg);
 			break;
-			
+
+		case 'P':
+			promisc = 0;
+			break;
+		case 'p':
+			promisc = 1;
+			break;
+
 		default:
 			usage();
 			/* NOTREACHED */
@@ -172,6 +180,12 @@ main(int argc, char *argv[])
 	TAILQ_FOREACH(bif, &nt->nt_bifs, bif_entry) {
 		if (bif->bif_blen > nt->nt_buflen)
 			nt->nt_buflen = bif->bif_blen;
+
+		if (promisc && ioctl(EVENT_FD(&bif->bif_ev),
+		    BIOCPROMISC, NULL) == -1) {
+			warn("failed to configure promisc on %s",
+			    bif->bif_name);
+		}
 
 		event_set(&bif->bif_ev, EVENT_FD(&bif->bif_ev),
 		    EV_READ | EV_PERSIST, bpf_interface_read, bif);
