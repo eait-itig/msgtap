@@ -71,7 +71,7 @@ Multi-byte fields in the `msgtap` protocol are in big-endian format.
   length of the message.
 
 The total length of a `msgtap` record is the size of this header,
-plus the metadta length, plus the captured data length.
+plus the metadata length, plus the captured data length.
 
 ### Metadata fields
 
