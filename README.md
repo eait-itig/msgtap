@@ -41,6 +41,11 @@ request the record was generated for.
 ## Structure
 
 Multi-byte fields in the `msgtap` protocol are in big-endian format.
+There is no provision for alignment of multi-byte fields, they can
+appear on any byte boundar.
+
+A `msgtap` record in a stream immediately follows the preceeding
+record. There is no padding or framing of records within a stream.
 
 ### Record Header
 
@@ -59,24 +64,25 @@ Multi-byte fields in the `msgtap` protocol are in big-endian format.
 ```
 
 - Version (4 bits): The current version number is 0.
-- Reserved (12 bits): These bits MUST be zero when messages are
+- Reserved (12 bits): These bits MUST be zero when records are
   generated, and MUST be ignored when processed.
-- Type of Message (16 bits): Identifies the type of data in the message.
-- Metadata Length (32 bits): The amount of metadata attached to the
-  message, in bytes.
-- Length (32 bits): The original length of the data attached to this
-  message.
-- Captured (32 bits): The amount of data attached to this message.
-  The amount of data that is captured may be less than the original
-  length of the message.
+- Type of Message (16 bits): Identifies the type of message data
+  attached to the record.
+- Metadata Length (32 bits): The amount of metadata in the record,
+  in bytes.
+- Length (32 bits): The original length of the message attached to
+  this record, in bytes.
+- Captured (32 bits): The amount of data from the message that is
+  attached to this record, in bytes. The amount of data that is
+  captured may be less than the original length of the message.
 
 The total length of a `msgtap` record is the size of this header,
-plus the metadata length, plus the captured data length.
+plus the metadata length, plus the captured message length.
 
 ### Metadata fields
 
-Metadata is identified by a 4 byte header, which may be followed
-by a value.
+Each metadata field is identified by a 4 byte header, which may be
+followed by a value.
 
 ```
  0                   1                   2                   3
@@ -92,7 +98,7 @@ by a value.
 - Type (8 bits): Type indicating the format of the data contained
   in this metadata field.
 - Length (16 bits): The length of the data following the metadata
-  header.
+  header, in bytes.
 
 ## Inspiration
 
