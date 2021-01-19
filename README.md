@@ -94,4 +94,16 @@ by a value.
 - Length (16 bits): The length of the data following the metadata
   header.
 
+## Inspiration
+
+- [`dnstap`] - a flexible, structured binary log format for DNS
+  software
+- [Geneve] - Generic Network Virtualisation Encapsulation
+- [NSH] - Network Service Header
+- [libpcap]
+
 [`dnstap`]: https://dnstap.info/
+[Geneve]: https://tools.ietf.org/html/rfc8926
+[NSH]: https://tools.ietf.org/html/rfc8300
+[libpcap]: https://www.tcpdump.org/
+
