@@ -20,11 +20,11 @@ can be merged together by simply concatenating them.
 The data contained in an individual `msgtap` record is typed. This
 supports the logging of high level messages exchanged by applications
 as well as the more traditional capture of low level messages such
-as network packets. For examle, `msgtap` supports logging of DNS
+as network packets. For example, `msgtap` supports logging of DNS
 messages like what is provided by [`dnstap`], but is not limited
-to the logging of DNS packets. A stream or file containing msgtap
-records may also contain Ethernet or IP packet captures as well as
-DNS messages.
+to the logging of DNS packets. A stream or file containing DNS
+`msgtap` records may also contain Ethernet or IP packet captures
+as well.
 
 ### Abitrary Metadata
 
@@ -104,8 +104,8 @@ followed by a value.
 
 - [`dnstap`] - a flexible, structured binary log format for DNS
   software
-- [Geneve] - Generic Network Virtualisation Encapsulation
-- [NSH] - Network Service Header
+- [Geneve] - RFC 8926: Generic Network Virtualisation Encapsulation
+- [NSH] - RFC 8300: Network Service Header
 - [libpcap]
 
 [`dnstap`]: https://dnstap.info/
