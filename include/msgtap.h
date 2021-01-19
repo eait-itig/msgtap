@@ -133,6 +133,8 @@ struct msgtap_metadata {
 #define MSGTAP_T_TID		0x0c	/* uint32 */
 #define MSGTAP_T_TID_LEN		4
 
+#define MSGTAP_T_TXID		0x0d	/* string: transation identifier */
+
 /*
  * sequence numbers help identify if messages were dropped/lost.
  */
