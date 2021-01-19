@@ -107,9 +107,11 @@ followed by a value.
 - [Geneve] - RFC 8926: Generic Network Virtualisation Encapsulation
 - [NSH] - RFC 8300: Network Service Header
 - [libpcap]
+- [ERF] - Endace Extensible Record Format (ERF)
 
 [`dnstap`]: https://dnstap.info/
 [Geneve]: https://tools.ietf.org/html/rfc8926
 [NSH]: https://tools.ietf.org/html/rfc8300
 [libpcap]: https://www.tcpdump.org/
+[ERF]: https://www.endace.com/endace-high-speed-packet-capture-solutions/technologies/erf/
 
