@@ -163,13 +163,6 @@ varset		: STRING '=' string		{
 		}
 		;
 
-optnl		: '\n' optnl
-		|
-		;
-
-nl		: '\n' optnl		/* one or more newlines */
-		;
-
 listeners	: server
 		| client
 		;
