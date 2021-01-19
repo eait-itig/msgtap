@@ -42,7 +42,7 @@ request the record was generated for.
 
 Multi-byte fields in the `msgtap` protocol are in big-endian format.
 There is no provision for alignment of multi-byte fields, they can
-appear on any byte boundar.
+appear on any byte boundary.
 
 A `msgtap` record in a stream immediately follows the preceeding
 record. There is no padding or framing of records within a stream.
