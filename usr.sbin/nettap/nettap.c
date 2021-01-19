@@ -359,7 +359,7 @@ bpf_interface_open(struct nettap *nt, const char *arg)
 		bif->bif_dlt = dlt;
 	}
 
-	bpf = open(BPF_DEV, O_RDWR|O_NONBLOCK|O_CLOEXEC);
+	bpf = open(BPF_DEV, O_RDONLY|O_NONBLOCK|O_CLOEXEC);
 	if (bpf == -1)
 		err(1, "%s", BPF_DEV);
 
