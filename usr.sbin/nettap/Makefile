@@ -1,18 +1,18 @@
 # $OpenBSD$
 
-PROG=	nettap
-SRCS=	nettap.c
-SRCS+=	libmsgtap.c
+PROG=		nettap
+SRCS=		nettap.c
+SRCS+=		libmsgtap.c
 MAN=
 
-BINOWN=	root
-BINGRP=	network
-BINMODE=4550
+BINOWN=		root
+BINGRP=		network
+BINMODE=	4550
 
-LDADD=	-lpcap -levent
-DPADD=	${LIBPCAP} ${LIBEVENT}
+LDADD=		-lpcap -levent
+DPADD=		${LIBPCAP} ${LIBEVENT}
 
-WARNINGS=Yes
-DEBUG=-g
+WARNINGS=	Yes
+DEBUG=		-g
 
 .include <bsd.prog.mk>
