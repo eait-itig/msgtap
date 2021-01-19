@@ -38,6 +38,57 @@ generated the record, the time at which the message was generated,
 or a sequence number or transaction identifier associated with the
 request the record was generated for.
 
-# Links
+## Structure
+
+Multi-byte fields in the `msgtap` protocol are in big-endian format.
+
+### Record Header
+
+```
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|Version| Reserved              | Type of Message               |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+| Metadata Length                                               |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+| Length                                                        |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+| Captured                                                      |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+- Version (4 bits): The current version number is 0.
+- Reserved (12 bits): These bits MUST be zero when messages are
+  generated, and MUST be ignored when processed.
+- Type of Message (16 bits): Identifies the type of data in the message.
+- Metadata Length (32 bits): The amount of metadata attached to the
+  message, in bytes.
+- Length (32 bits): The original length of the data attached to this
+  message.
+- Captured (32 bits): The amount of data attached to this message.
+  The amount of data that is captured may be less than the original
+  length of the message.
+
+### Metadata fields
+
+Metadata is identified by a 4 byte header, which may be followed
+by a value.
+
+```
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+| Class         | Type          | Length                        |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+- Class (8 bits): Namespace for the "Type" field. If the class is
+  0xff (255), the type namespace is provided by the msgtap header
+  Type field.
+- Type (8 bits): Type indicating the format of the data contained
+  in this metadata field.
+- Length (16 bits): The length of the data following the metadata
+  header.
 
 [`dnstap`]: https://dnstap.info/
