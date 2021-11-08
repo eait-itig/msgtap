@@ -1,6 +1,6 @@
 # msgtap
 
-`msgtap` is a structured binary log format for abitrary messages.
+`msgtap` is a structured binary log format for arbitrary messages.
 
 ## Features
 
